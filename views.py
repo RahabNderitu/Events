@@ -1,30 +1,178 @@
 from django.shortcuts import render
-from django.template import loader
-from django.views.generic import TemplateView
+# from django.template import loader
+from django.contrib import auth
+from django.http import HttpResponseRedirect
+from django.contrib.auth import get_user_model
+
+
 
 # Create your views here.
-def index(request):
-    context = {
-        'page': 'index',
-        'coverHeading': 'Search Events'
-    }
-    return render(request, 'events/dashboard.html', context)
+def index(request): 
+    # context = {
+    #     'page': 'index',
+    #     'coverHeading': 'Search Events'
+    # }
+    return render(request, 'events/login.html')
 
-def login(request):
-    return render(request, 'registration/login.html')  
-def register(request):
-    return render(request, 'events/register.html')  
+# def login(request):
+#     return render(request, 'registration/login.html')  
+# def register(request):
+#     return render(request, 'registration/register.html')  
 def forgotpassword(request):
     return render(request, 'events/forgotpassword.html')  
-
-
-
 def dashboard(request):
     return render(request, 'events/dashboard.html')
+def register(request):
+    return render(request, 'events/register.html')
+
+def login(request):
+    return render(request, 'events/login.html')
+
+def do_login(request):
+    request_method = request.method
+    print('request_method = ' + request_method)
+    if request_method == 'POST':
+        user_name = request.POST.get('user_name','')
+        password = request.POST.get('password', '')
+        # authenticate user account.
+        user = auth.authenticate(request, username=user_name, password=password)
+        if user is not None:
+            # login user account.
+            auth.login(request, user)
+            response = HttpResponseRedirect('/events/dashboard')
+            # set cookie to transfer user name to login success page.
+            response.set_cookie('user_name', user_name, 3600)
+            return response
+        else:
+            error_json = {'error_message': 'User name or password is not correct.'}
+            return render(request, '/events/login.html', error_json)
+    else:
+        return render(request, '/events/login.html')
+def do_register(request):
+    request_method = request.method
+    print('request_method = ' + request_method)
+    if request_method == 'POST':
+        user_name = request.POST.get('user_name', '')
+        user_password = request.POST.get('user_password', '')
+        user_email = request.POST.get('user_email', '')
+        if len(user_name) > 0 and len(user_password) > 0 and len(user_email) > 0:
+            # check whether user account exist or not.
+            user = auth.authenticate(request, username=user_name, password=user_password)
+            # if user account do not exist.
+            if user is None:
+                # create user account and return the user object.
+                user = get_user_model().objects.create_user(username=user_name, password=user_password, email=user_email)
+                # update user object staff field value and save to db.
+                if user is not None:
+                    user.is_staff = True
+                    # save user properties in sqlite auth_user table.
+                    user.save()
+                # redirect web page to register success page.
+                response = HttpResponseRedirect('/events/login/')
+                # set user name, pasword and email value in session.
+                request.session['user_name'] = user_name
+                request.session['user_password'] = user_password
+                request.session['user_email'] = user_email
+                return response
+            else:
+                error_json = {'error_message': 'User account exist, please register another one.'}
+                return render(request, 'events/register.html', error_json)
+        else:
+            error_json = {'error_message': 'User name, password and email can not be empty.'}
+            return render(request, 'events/register.html', error_json)
+    else:
+        return render(request, 'events/register.html')
+
+# def register(request):
+#     # dec vars
+#     username = str(request.POST['username']).lower()
+#     email = str(request.POST['email']).lower()
+#     password = str(request.POST['password'])
+
+#     # check if username or email is used
+#     username_check = User.objects.filter(username=username)
+#     email_check = User.objects.filter(email=email)
+
+#     if username_check:
+#         response = {
+#             'status': 'fail',
+#             'error_msg': 'username already in use'
+#         }
+#     elif email_check:
+#         response = {
+#             'status': 'fail',
+#             'error_msg': 'email already in use'
+#         }
+#     elif len(password) < 8:
+#         response = {
+#             'status': 'fail',
+#             'error_msg': 'password must be atleast 8 characters long'
+#         }
+#     else:
+#         # creating a  user
+#         user = User.objects.create_user(username, email, password)
+
+#         # login user
+#         login(request, user)
+
+#         # create response
+#         response = {
+#             'status': 'success',
+#         }
+
+#     # send reponse JSON
+#     return JsonResponse(response)
 
 
-class HomePageView(TemplateView):
-    template_name = 'dashboard.html'
+# def login(request):
+#     # dec vars
+#     username = request.POST['username']
+#     password = request.POST['password']
+#     # user Auth
+#     user = authenticate(request, username=username, password=password)
+
+#     if user:
+#         login(request, user)
+#         # creating response
+#         response = {
+#             'status': 'success'
+#         }
+#     else:
+#         # creating response
+#         response = {
+#             'status': 'fail'
+#         }
+
+#     # send reponse JSON
+#     return JsonResponse(response)
+   
+# def formView(request):
+#    if request.session.has_key('username'):
+#       username = request.session['username']
+#       return render(request, 'loggedin.html', {"username" : username})
+#    else:
+#       return render(request, 'login.html', {})
+
+# def register(request):
+#     if request.method == 'POST':
+#         form = UserRegistrationForm(request.POST)
+#         if form.is_valid():
+#             userObj = form.cleaned_data
+#             username = userObj['username']
+#             email =  userObj['email']
+#             password =  userObj['password']
+#             if not (User.objects.filter(username=username).exists() or User.objects.filter(email=email).exists()):
+#                 User.objects.create_user(username, email, password)
+#                 user = authenticate(username = username, password = password)
+#                 login(request, user)
+#                 return HttpResponseRedirect('/login/')    
+#             else:
+#                 raise forms.ValidationError('Looks like a username with that email or password already exists')
+                
+#     else:
+#         form = UserRegistrationForm()
+        
+#     return render(request, '/register.html', {'form' : form})  
 
 
 # def register(request):
@@ -86,68 +234,6 @@ class HomePageView(TemplateView):
 # # AJAX
 
 
-# def register(request):
-#     # dec vars
-#     username = str(request.POST.get['register-username']).lower()
-#     email = str(request.POST.get['register-email']).lower()
-#     password = str(request.POST.get['register-password'])
-
-#     # check if username or email is used
-#     username_check = User.objects.filter(username=username)
-#     email_check = User.objects.filter(email=email)
-
-#     if username_check:
-#         response = {
-#             'status': 'fail',
-#             'error_msg': 'username already in use'
-#         }
-#     elif email_check:
-#         response = {
-#             'status': 'fail',
-#             'error_msg': 'email already in use'
-#         }
-#     elif len(password) < 8:
-#         response = {
-#             'status': 'fail',
-#             'error_msg': 'password must be atleast 8 characters long'
-#         }
-#     else:
-#         # create user
-#         user = User.objects.create_user(username, email, password)
-
-#         # login user
-#         login(request, user)
-
-#         # create response
-#         response = {
-#             'status': 'success',
-#         }
-
-#     # send reponse JSON
-#     return JsonResponse(response)
-
-
-def login(request):
-    # dec vars
-    username = request.POST.get['signin-username']
-    password = request.POST.get['signin-password']
-    # Auth user
-    user = authenticate(request, username=username, password=password)
-
-    if user:
-        login(request, user)
-        # create response
-        response = {
-            'status': 'success'
-        }
-    else:
-        # create response
-        response = {
-            'status': 'fail'
-        }
-
-    # send reponse JSON
-    return JsonResponse(response)
 
 
 # def logoutUser(request):
